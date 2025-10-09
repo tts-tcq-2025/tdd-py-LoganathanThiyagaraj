@@ -1,5 +1,5 @@
 import pytest
-from String_Calculator import StringCalculator # Assuming the class is in string_calculator.py
+from StringCalculator import StringCalculator # Assuming the class is in string_calculator.py
 
 class TestStringCalculator:
     """
