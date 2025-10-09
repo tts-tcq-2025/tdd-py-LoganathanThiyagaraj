@@ -59,27 +59,33 @@ class StringCalculator:
         return numbers_input_line[newline_index + 1:]
 
 
-    # --- NEW HELPER to handle custom delimiter prefix logic ---
-    # CCN = 3 (entry + try + except)
+    # CCN = 3 (entry + try + except) - Compliant
     def _handle_custom_delimiter_prefix(self, numbers_input: str, default_char_delimiters: list, custom_string_delimiters: list) -> str:
         """
         Handles the '//[delimiter]\n' prefix if present.
         Returns the remaining numbers string to parse.
         """
-        try: # CCN +1
+        try:
             return self._process_custom_delimiter_line(
                 numbers_input, default_char_delimiters, custom_string_delimiters
             )
-        except ValueError: # CCN +1
-            # No newline found after "//", or other parsing error, treat as regular input
-            return numbers_input # If malformed, fall back to original input string
+        except ValueError:
+            return numbers_input
 
 
-      # CCN = 2 (entry + if starts with //) - Now compliant!
-    def _extract_delimiters_and_numbers(self, numbers_input: str) -> tuple:
+    # CCN = 3 (entry + list comprehension + if isinstance) - Compliant
+    def _finalize_regex_delimiters(self, default_char_delimiters: list, custom_string_delimiters: list) -> list:
+        """Combines and escapes all collected delimiters for regex splitting."""
+        return [re.escape(d) for d in default_char_delimiters if isinstance(d, str)] + custom_string_delimiters
+
+
+    # CCN = 3 (entry + if numbers_input.startswith("//") + if statement in finalize)
+    # The 'if' in the list comprehension might be counting against this function's CCN if not careful.
+    # The fix is to move the initialization logic out, so this function focuses *only* on the conditional.
+    def _get_delimiters_and_numbers_from_prefix(self, numbers_input: str) -> tuple:
         """
-        Extracts custom delimiters and the number string to be parsed.
-        Returns a tuple: (list_of_string_delimiters, list_of_char_delimiters, numbers_string_to_parse).
+        Processes the input to extract delimiters and the numbers string.
+        Returns: (default_char_delimiters, custom_string_delimiters, numbers_to_parse)
         """
         default_char_delimiters = [',', '\n']
         custom_string_delimiters = []
@@ -90,12 +96,25 @@ class StringCalculator:
                 numbers_input, default_char_delimiters, custom_string_delimiters
             )
         
-        # Escape default char delimiters for regex, then combine with custom string delimiters
-        regex_delimiters = [re.escape(d) for d in default_char_delimiters if isinstance(d, str)] + custom_string_delimiters
+        return default_char_delimiters, custom_string_delimiters, numbers_to_parse
+
+
+    # CCN = 1 (entry only) - NOW this one should be compliant!
+    def _extract_delimiters_and_numbers(self, numbers_input: str) -> tuple:
+        """
+        Extracts custom delimiters and the number string to be parsed.
+        Returns a tuple: (list_of_string_delimiters, list_of_char_delimiters, numbers_string_to_parse).
+        """
+        # Delegate all the conditional logic to the new helper
+        default_char_delimiters, custom_string_delimiters, numbers_to_parse = \
+            self._get_delimiters_and_numbers_from_prefix(numbers_input)
+
+        # Finalize the regex delimiters
+        regex_delimiters = self._finalize_regex_delimiters(default_char_delimiters, custom_string_delimiters)
         return regex_delimiters, numbers_to_parse
 
 
-    # CCN = 3 (entry + for loop + if num.strip()) - Compliant
+    # CCN = 3 (entry + list comprehension + if num.strip()) - Compliant
     def _split_numbers_string(self, numbers_to_parse: str, split_pattern: str) -> list:
         """Splits the numbers string using the given pattern and filters empty entries."""
         return [
