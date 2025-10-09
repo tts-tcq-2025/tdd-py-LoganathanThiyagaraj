@@ -75,7 +75,7 @@ class StringCalculator:
             return numbers_input # If malformed, fall back to original input string
 
 
-    # CCN = 2 (entry + if starts with //) - Now compliant!
+      # CCN = 2 (entry + if starts with //) - Now compliant!
     def _extract_delimiters_and_numbers(self, numbers_input: str) -> tuple:
         """
         Extracts custom delimiters and the number string to be parsed.
