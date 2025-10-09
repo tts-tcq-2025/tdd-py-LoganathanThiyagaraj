@@ -21,6 +21,8 @@ jobs:
         python -m pip install --upgrade pip
         pip install flake8
         pip install coverage
+        pip install pytest  # <--- ADDED pytest
+        pip install lizard  # <--- ADDED lizard
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Lint with flake8
       run: |
@@ -28,14 +30,35 @@ jobs:
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
         # exit-zero treats all errors as warnings.
         flake8 . --count --exit-zero --max-line-length=80 --ignore=E111,E121,E126 --statistics
-    - name: Run and collect coverage
+
+    # --- NEW STEP: Check Cyclomatic Complexity (CCN) ---
+    - name: Check Cyclomatic Complexity (CCN <= 3)
       run: |
-        coverage run --branch monitor.test.py
+        echo "Running Lizard CCN check on StringCalculator.py with max CCN 3..."
+        # If any function in StringCalculator.py has CCN > 3, this command will fail the step.
+        lizard --CCN 3 StringCalculator.py
+        echo "Lizard CCN check passed!"
+
+    - name: Run tests and collect coverage
+      run: |
+        echo "Running pytest with coverage..."
+        # This tells coverage to run 'pytest' to discover and execute tests.
+        # pytest will automatically find TestSuite.py.
+        # --branch ensures branch coverage is measured.
+        coverage run --branch -m pytest
+        
+        echo "Generating HTML coverage report..."
+        # This generates the HTML report in the default 'htmlcov' directory.
         coverage html
-        coverage report
-    - name: Upload coverage
+        
+        echo "Generating console coverage report for StringCalculator.py..."
+        # This will output the coverage report to the console, specifically for StringCalculator.py.
+        # The '-m' flag shows missing lines/branches.
+        coverage report -m StringCalculator.py # Specify the target file for the console report
+    
+    - name: Upload coverage HTML report artifact
       uses: actions/upload-artifact@v4
       with:
-        name: coverage
+        name: coverage-report-html
         path: ./htmlcov
         retention-days: 7
