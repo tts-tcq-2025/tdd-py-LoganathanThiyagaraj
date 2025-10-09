@@ -6,7 +6,7 @@ class StringCalculator:
     following specific rules for delimiters, negatives, and large numbers.
     """
 
-    # CCN = 3 (entry + if < 0 + if <= 1000) - Already compliant
+    # CCN = 3 (entry + if < 0 + if <= 1000) - Compliant
     def _parse_and_validate_number(self, num_str: str, negative_numbers: list) -> int:
         """
         Parses a single number string, collects negatives, and ignores numbers > 1000.
@@ -21,52 +21,49 @@ class StringCalculator:
         if number <= 1000:
             return number
         
-        return 0 # Numbers > 1000 are ignored
+        return 0
 
 
-    # --- Refactoring _parse_bracketed_delimiters (CCN 4 -> 2) ---
-    # The loop was the issue. Extract the loop into its own helper.
-    # CCN = 2 (entry + for loop)
+    # CCN = 3 (entry + for loop + if d) - Compliant
     def _add_extracted_delimiters(self, extracted_delimiters: list, custom_string_delimiters: list):
         """Adds escaped delimiters to the list if they are not empty."""
         for d in extracted_delimiters:
-            if d: # Ensure delimiter is not empty
+            if d:
                 custom_string_delimiters.append(re.escape(d))
 
-    # CCN = 2 (entry + if '[' in delimiter_spec)
+    # CCN = 2 (entry + if '[' in delimiter_spec) - Compliant
     def _parse_bracketed_delimiters(self, delimiter_spec: str, custom_string_delimiters: list):
         """Parses a bracketed delimiter specification (e.g., '[***][*][%]')"""
-        if '[' in delimiter_spec: # This check acts as the main conditional
+        if '[' in delimiter_spec:
             extracted_delimiters = re.findall(r"\[(.*?)\]", delimiter_spec)
             self._add_extracted_delimiters(extracted_delimiters, custom_string_delimiters)
 
-
-    # CCN = 2 (entry + if delimiter_spec) - Already compliant
+    # CCN = 2 (entry + if delimiter_spec) - Compliant
     def _parse_single_char_delimiter(self, delimiter_spec: str, default_char_delimiters: list):
         """Parses a single character delimiter specification (e.g., ';')"""
-        if delimiter_spec: # This check acts as the main conditional
+        if delimiter_spec:
             default_char_delimiters.append(delimiter_spec)
 
 
-    # --- Refactoring _extract_delimiters_and_numbers (CCN 6 -> 3) ---
-    # The nested logic needs to be simplified further.
-    # New helper to encapsulate the "found custom delimiter spec" branch
-    # CCN = 3 (entry + if newline_index != -1 + if delimiter_spec)
-    def _process_custom_delimiter_line(self, numbers_input: str, newline_index: int, default_char_delimiters: list, custom_string_delimiters: list) -> str:
-        """Processes the custom delimiter line part of the input."""
-        delimiter_spec = numbers_input[2:newline_index]
+    # CCN = 3 (entry + if '[' in delimiter_spec + else) - Compliant
+    def _process_custom_delimiter_line(self, numbers_input_line: str, default_char_delimiters: list, custom_string_delimiters: list) -> str:
+        """Processes the custom delimiter line part of the input string."""
+        # numbers_input_line format: "//[delimiter]\n[numbers...]"
+        # This function receives the entire 'numbers' string, not just the delimiter spec.
+        # It needs to extract the delimiter spec and then the remaining numbers.
         
-        # Determine if it's bracketed or single char, and parse
-        # This part still needs to be careful not to increase CCN here
+        newline_index = numbers_input_line.index('\n') # This won't raise, as we've checked before calling
+        delimiter_spec = numbers_input_line[2:newline_index]
+
         if '[' in delimiter_spec: # CCN +1
              self._parse_bracketed_delimiters(delimiter_spec, custom_string_delimiters)
-        else: # CCN +1 for the else, this makes it mutually exclusive
+        else: # CCN +1 (This makes the if/else mutually exclusive, so it's CCN 2 for this block)
              self._parse_single_char_delimiter(delimiter_spec, default_char_delimiters)
 
-        return numbers_input[newline_index + 1:]
+        return numbers_input_line[newline_index + 1:]
 
 
-    # CCN = 3 (entry + if starts with // + try/except block)
+    # CCN = 3 (entry + if starts with // + try/except)
     def _extract_delimiters_and_numbers(self, numbers_input: str) -> tuple:
         """
         Extracts custom delimiters and the number string to be parsed.
@@ -77,32 +74,30 @@ class StringCalculator:
         numbers_to_parse = numbers_input
 
         if numbers_input.startswith("//"): # CCN +1
-            try:
-                newline_index = numbers_input.index('\n')
-                # If a custom delimiter line is found, process it
+            try: # CCN +1
+                # Delegates the parsing of the custom delimiter line itself
                 numbers_to_parse = self._process_custom_delimiter_line(
-                    numbers_input, newline_index, default_char_delimiters, custom_string_delimiters
+                    numbers_input, default_char_delimiters, custom_string_delimiters
                 )
             except ValueError: # CCN +1 for the except block
-                # No newline found after "//", or other parsing error, treat as regular input
+                # This should ideally not happen if 'index('\n')' is checked before calling.
+                # But serves as a safeguard if the custom delimiter format is malformed (e.g. "//;no-newline")
                 pass 
 
         # Escape default char delimiters for regex, then combine with custom string delimiters
         regex_delimiters = [re.escape(d) for d in default_char_delimiters if isinstance(d, str)] + custom_string_delimiters
         return regex_delimiters, numbers_to_parse
 
-    # --- Refactoring Add (CCN 5 -> 3) ---
-    # The splitting and filtering logic was adding to complexity.
-    # New helper to handle the splitting of the string.
-    # CCN = 2 (entry + for loop for filter)
+
+    # CCN = 3 (entry + for loop + if d) - Compliant
     def _split_numbers_string(self, numbers_to_parse: str, split_pattern: str) -> list:
         """Splits the numbers string using the given pattern and filters empty entries."""
-        number_str_list = [
+        # Using a generator expression with list comprehension to keep CCN low
+        return [
             num.strip() for num in re.split(split_pattern, numbers_to_parse) if num.strip()
         ]
-        return number_str_list
 
-    # CCN = 2 (entry + for loop) - Already compliant
+    # CCN = 2 (entry + for loop) - Compliant
     def _calculate_sum_and_find_negatives(self, number_str_list: list, negative_numbers: list) -> int:
         """Calculates the sum of numbers and collects any negatives."""
         total_sum = 0
@@ -110,7 +105,7 @@ class StringCalculator:
             total_sum += self._parse_and_validate_number(num_str, negative_numbers)
         return total_sum
 
-    # CCN = 3 (entry + if not numbers + if negative_numbers) - Now compliant
+    # CCN = 3 (entry + if not numbers + if negative_numbers) - Compliant
     def Add(self, numbers: str) -> int:
         """
         Calculates the sum of numbers in the input string.
